@@ -111,6 +111,8 @@ class Element(object):
         self.left_element = None
         self.right_element = None
 
+        self.first_anchor = None
+
     @property
     def end(self):
         return self.pos + self.length - 1
@@ -142,7 +144,7 @@ class Element(object):
         for k in range(i, j):
             self.tc[k] = 0
 
-    def find_valid_pos(self, anchor=None, right_caller=False):
+    def find_valid_pos(self, anchor=None):
         # TODO remove usage of tc
         if len(self.tc) == 0:
             self.tc = [-1 for _ in range(self.column.length)]
@@ -150,11 +152,18 @@ class Element(object):
         if anchor is not None:
             # check what is the color of the anchor point
             if self.colors[anchor] != self.color:
-                self.left_element.find_valid_pos(anchor=anchor, right_caller=True)
-                anchor = None
+                self.first_anchor = None
+                self.left_element.find_valid_pos(anchor=anchor)
+                return
+
         # Choose first starting point
         if anchor is not None:
             pos = anchor - self.length + 1
+            if self.first_anchor is not None and pos > self.first_anchor:
+                old_anchor = self.first_anchor
+                self.first_anchor = None
+                self.left_element.find_valid_pos(anchor=old_anchor)
+                return
         elif self.left_element is None:
             pos = 0
         else:
@@ -182,22 +191,40 @@ class Element(object):
         while not valid:
             for i, c in enumerate(pattern):
                 if self.tc[pos + i] != -1 and self.tc[pos + i] != c:
-                    # we failed at the ith element
-                    # we start again at pos + i + 1
+                    # If it is another color then we rollback
+                    if self.tc[pos + i] != 0:
+                        self.first_anchor = None
+                        self.left_element.find_valid_pos(anchor=pos + i)
+                        return
+                    # If it is just because of an 'X', then try to move forward
                     pos += 1
+                    # If we loosed an anchor then rollback
+                    if self.first_anchor is not None and pos > self.first_anchor:
+                        old_anchor = self.first_anchor
+                        self.first_anchor = None
+                        self.left_element.find_valid_pos(anchor=old_anchor)
+                        return
+
                     # set prev points to invalid
                     self.set_invalid(j=pos)
                     break
+                elif self.tc[pos + i] == c and c != 0:
+                    if self.first_anchor is None:
+                        self.first_anchor = pos + i  # we save only the first one
             else:
                 valid = True
         if valid:
             self.pos = pos
             if self.right_element is not None:
-                if not right_caller:
-                    self.right_element.find_valid_pos()
+                self.right_element.find_valid_pos()
+                return
             else:
                 # look for anchors
-                pass
+                print range(pos + len(pattern), self.column.length)
+                for i in range(pos + len(pattern), self.column.length):
+                    if self.tc[i] != -1 and self.tc[i] != 0:
+                        self.find_valid_pos(anchor=i)
+                        return
 
 
 class Vector(object):
