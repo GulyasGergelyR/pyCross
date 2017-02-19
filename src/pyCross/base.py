@@ -37,19 +37,27 @@ class SubColumn(BaseColumn):
         self.parent = kwargs.pop('parent', None)
         self.rotated = kwargs.pop('rotated', False)
 
+    @property
+    def colors(self):
+        t = [0 for _ in range(self.length)]
+        for element in self.vector.elements:
+            for i in range(element.length):
+                if self.rotated:
+                    t[self.length - element.pos - i - 1] = element.color
+                else:
+                    t[element.pos + i] = element.color
+        return t
+
+    @property
+    def ids(self):
+        return [cell.color for cell in self.cells]
+
     def left_most(self):
         self.vector.arrange()
         self.print_it()
 
     def print_it(self):
-        t = ['X' for _ in range(self.length)]
-        for element in self.vector.elements:
-            for i in range(element.length):
-                if self.rotated:
-                    t[self.length-element.pos-i-1] = str(element.color)
-                else:
-                    t[element.pos+i] = str(element.color)
-        print 'sub:  |{}|'.format(''.join(t))
+        print 'sub:  |{}|'.format(''.join(['X' if c == 0 else str(c) for c in self.colors]))
 
 
 class Column(BaseColumn):
@@ -71,6 +79,11 @@ class Column(BaseColumn):
         self.left_clone.left_most()
         self.right_clone = self.create_copy(rotate=True)
         self.right_clone.left_most()
+        self.merge_copies()
+
+    def merge_copies(self):
+        # get merged table
+        pass
 
     def get_result(self, copy):
         for element in copy.vector.elements:
