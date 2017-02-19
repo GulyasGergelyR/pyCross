@@ -12,7 +12,7 @@ z_id = 10
 class Cell(object):
     def __init__(self, **kwargs):
         self.p = kwargs.pop('p', [0, 0, 0])
-        self.id = kwargs.pop('id', [-1, -1, -1])
+        self.id = kwargs.pop('id', [-2, -2, -2])
         self.color = kwargs.pop('color', -1)
 
 
@@ -59,7 +59,7 @@ class Column(BaseColumn):
         self.right_clone = None
 
     def create_copy(self, rotate=False):
-        cells = [Cell(color=cell.color) for cell in self.cells]
+        cells = [Cell(color=cell.color, id=cell.id[:]) for cell in self.cells]
         if rotate:
             cells = cells[::-1]
         c = SubColumn(parent=self, cells=cells, vector=self.vector.create_copy(rotate), rotated=rotate)
@@ -151,7 +151,8 @@ class Element(object):
 
     @property
     def ids(self):
-        return [cell.color for cell in self.cells]
+        # TODO fix id hack
+        return [cell.id[0] for cell in self.cells]
 
     def spacer(self, element):
         if self.color == element.color:
@@ -187,6 +188,13 @@ class Element(object):
                 self.first_anchor = None
                 self.left_element.find_valid_pos(anchor=anchor, info='Not the right color, keep rolling back')
                 return
+        else:
+            # Search for partially found elements:
+            for i, element_id in enumerate(self.ids[::-1]):
+                if element_id == self.id:
+                    anchor = self.column.length - i
+                    if print_output:
+                        print "[Info]: Created anchor based on fix color"
 
         # Choose first starting point
         if anchor is not None:
@@ -210,11 +218,10 @@ class Element(object):
         for i, c in enumerate(self.colors[pos:]):
             if c != -1:
                 self.tc[i+pos] = c
-
-            # main: [--2-1XX--333---]
-            # left: [X22------------] length: 2, color: 2
-            #           |----------|  iterate here
-            # self: [XXX-1XX--333---] color: 1
+        # main: [--2-1XX--333---]
+        # left: [X22------------] length: 2, color: 2
+        #           |----------|  iterate here
+        # self: [XXX-1XX--333---] color: 1
         # Find valid positions
         valid = False
         pattern = [self.color for _ in range(self.length)]
