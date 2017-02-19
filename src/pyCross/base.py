@@ -45,8 +45,7 @@ class SubColumn(BaseColumn):
         self.parent = kwargs.pop('parent', None)
 
     def left_most(self):
-        for element in self.vector.elements:
-            element.find_valid_pos()
+        self.vector.arrange()
         self.print_it()
 
     def print_it(self):
@@ -138,34 +137,37 @@ class Element(object):
         else:
             return 0
 
-    def get_left(self):
-        return self.left_element
-
-    def get_right(self):
-        return self.right_element
-
     def set_invalid(self, i=0, j=None, length=0):
         j = j if j is not None else i+length
         for k in range(i, j):
             self.tc[k] = 0
 
-    def find_valid_pos(self, anchor=None):
+    def find_valid_pos(self, anchor=None, right_caller=False):
+        # TODO remove usage of tc
         if len(self.tc) == 0:
             self.tc = [-1 for _ in range(self.column.length)]
 
-        # Find invalid positions
-        left = self.get_left()
-        if left is None:
-            left_pos = 0
+        if anchor is not None:
+            # check what is the color of the anchor point
+            if self.colors[anchor] != self.color:
+                self.left_element.find_valid_pos(anchor=anchor, right_caller=True)
+                anchor = None
+        # Choose first starting point
+        if anchor is not None:
+            pos = anchor - self.length + 1
+        elif self.left_element is None:
+            pos = 0
         else:
-            left_pos = left.end + self.spacer(left) + 1
-        # left_pos is the first valid cell after the prev element (without main constraints)
-        self.set_invalid(j=left_pos)
+            pos = self.left_element.end + self.spacer(self.left_element) + 1
+
+        # Find invalid positions
+        # pos is the first valid cell after the prev element (without main constraints)
+        self.set_invalid(j=pos)
         # left: [XXXXXXX111-----]
         # self: [XXXXXXXXXXX11--] length: 2, color: 1
-        for i, c in enumerate(self.colors[left_pos:]):
+        for i, c in enumerate(self.colors[pos:]):
             if c != -1:
-                self.tc[i+left_pos] = c
+                self.tc[i+pos] = c
 
             # main: [--2-1XX--333---]
             # left: [X22------------] length: 2, color: 2
@@ -173,22 +175,16 @@ class Element(object):
             # self: [XXX-1XX--333---] color: 1
         # Find valid positions
         valid = False
-        if anchor is not None:
-            # anchor is the end point
-            pos = anchor - self.length + 1
-        else:
-            pos = left_pos
-        right = self.get_right()
         pattern = [self.color for _ in range(self.length)]
-        if right is not None:
-            if self.color == right.color:
+        if self.right_element is not None:
+            if self.color == self.right_element.color:
                 pattern += [0]
         while not valid:
             for i, c in enumerate(pattern):
                 if self.tc[pos + i] != -1 and self.tc[pos + i] != c:
                     # we failed at the ith element
                     # we start again at pos + i + 1
-                    pos += i + 1
+                    pos += 1
                     # set prev points to invalid
                     self.set_invalid(j=pos)
                     break
@@ -196,6 +192,12 @@ class Element(object):
                 valid = True
         if valid:
             self.pos = pos
+            if self.right_element is not None:
+                if not right_caller:
+                    self.right_element.find_valid_pos()
+            else:
+                # look for anchors
+                pass
 
 
 class Vector(object):
@@ -227,3 +229,6 @@ class Vector(object):
                             length=e.length, found=e.found, pos=e.pos) for e in self.elements]
         e = Vector(elements=elements)
         return e
+
+    def arrange(self):
+        self.elements[0].find_valid_pos()
