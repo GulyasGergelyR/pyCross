@@ -21,7 +21,7 @@ class Cell(object):
     def __init__(self, **kwargs):
         self.p = kwargs.pop('p', [0, 0, 0])
         self.id = kwargs.pop('id', [-1, -1, -1])
-        self.color = -1
+        self.color = kwargs.pop('color', -1)
 
 
 class BaseColumn(object):
@@ -43,6 +43,7 @@ class SubColumn(BaseColumn):
     def __init__(self, **kwargs):
         super(SubColumn, self).__init__(**kwargs)
         self.parent = kwargs.pop('parent', None)
+        self.rotated = kwargs.pop('rotated', False)
 
     def left_most(self):
         self.vector.arrange()
@@ -52,7 +53,10 @@ class SubColumn(BaseColumn):
         t = ['X' for _ in range(self.length)]
         for element in self.vector.elements:
             for i in range(element.length):
-                t[element.pos+i] = str(element.color)
+                if self.rotated:
+                    t[self.length-element.pos-i-1] = str(element.color)
+                else:
+                    t[element.pos+i] = str(element.color)
         print 'sub:  |{}|'.format(''.join(t))
 
 
@@ -62,15 +66,19 @@ class Column(BaseColumn):
         self.left_clone = None
         self.right_clone = None
 
-    def create_copy(self):
+    def create_copy(self, rotate=False):
         cells = [Cell(color=cell.color) for cell in self.cells]
-        c = SubColumn(parent=self, cells=cells, vector=self.vector.create_copy())
+        if rotate:
+            cells = cells[::-1]
+        c = SubColumn(parent=self, cells=cells, vector=self.vector.create_copy(rotate), rotated=rotate)
         return c
 
     def parse(self):
         self.print_it()
         self.left_clone = self.create_copy()
         self.left_clone.left_most()
+        self.right_clone = self.create_copy(rotate=True)
+        self.right_clone.left_most()
 
     def print_it(self):
         t = ['-' for _ in range(self.length)]
@@ -220,7 +228,6 @@ class Element(object):
                 return
             else:
                 # look for anchors
-                print range(pos + len(pattern), self.column.length)
                 for i in range(pos + len(pattern), self.column.length):
                     if self.tc[i] != -1 and self.tc[i] != 0:
                         self.find_valid_pos(anchor=i)
@@ -231,6 +238,8 @@ class Vector(object):
     def __init__(self, **kwargs):
         self.elements = kwargs.pop('elements', [])
         self.column = None
+        for element in self.elements:
+            element.vector = self
 
         for i in range(len(self.elements)-1):
             self.elements[i].right_element = self.elements[i+1]
@@ -251,9 +260,11 @@ class Vector(object):
                     return None
         raise ValueError("There is no such element with id: '{}'".format(element.id))
 
-    def create_copy(self):
-        elements = [Element(vector=self, id=e.id, color=e.color,
+    def create_copy(self, rotate=False):
+        elements = [Element(id=e.id, color=e.color,
                             length=e.length, found=e.found, pos=e.pos) for e in self.elements]
+        if rotate:
+            elements = elements[::-1]
         e = Vector(elements=elements)
         return e
 
