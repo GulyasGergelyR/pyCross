@@ -203,11 +203,20 @@ class Element(object):
                 return
         else:
             # Search for partially found elements:
-            for i, element_id in enumerate(self.ids[::-1]):
+            for i, element_id in enumerate(self.ids if self.rotated else self.ids[::-1]):
                 if element_id == self.id:
-                    anchor = self.column.length - i
+                    anchor = i if self.rotated else self.column.length - i - 1
                     if print_output:
                         print "[Info]: Created anchor based on fix color"
+                    # Check if is there any anchors between, if so then rollback with left element
+                    if self.left_element is not None:
+                        pos = self.left_element.end + self.spacer(self.left_element) + 1
+                        for j in range(pos, anchor):
+                            if self.colors[j] != -1 and self.colors[j] != 0:  # it is a color
+                                self.left_element.find_valid_pos(anchor=j, info='Found anchors before fix color')
+                                return
+                    # There was no anchors
+                    break
 
         # Choose first starting point
         if anchor is not None:
