@@ -1,6 +1,6 @@
 from pyCross.base import Vector, Column, Element
 
-print "[Test1]: simple left right"
+print "[Test-1]: simple left right"
 elements = [
     Element(color=1, length=1),
     Element(color=1, length=1),
@@ -15,7 +15,7 @@ c.cells[17].color = 1
 
 c.parse()
 print '----------------------------'
-print "[Test2]: with fix element"
+print "[Test-2]: with fix element"
 elements = [
     Element(color=1, length=1),
     Element(color=1, length=1),
@@ -34,7 +34,7 @@ c.cells[17].color = 1
 
 c.parse()
 print '----------------------------'
-print "[Test3]: with fix color"
+print "[Test-3]: with fix color"
 elements = [
     Element(color=1, length=1),
     Element(color=1, length=2),
@@ -51,10 +51,10 @@ c.cells[17].color = 1
 
 c.parse()
 print '----------------------------'
-print "[Test4]: run again"
+print "[Test-3.1]: run again"
 c.parse()
 print '----------------------------'
-print "[Test5]: run again with new color"
+print "[Test-3.2]: run again with new color"
 c.cells[14].color = elements[2].color
 c.cells[14].id[0] = elements[2].id
 c.parse()
