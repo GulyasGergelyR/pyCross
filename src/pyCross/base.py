@@ -50,7 +50,9 @@ class SubColumn(BaseColumn):
 
     @property
     def ids(self):
-        return [cell.color for cell in self.cells]
+        # TODO remove id hack
+        cells = self.cells[::-1] if self.rotated else self.cells
+        return [cell.id[0] for cell in cells]
 
     def left_most(self):
         self.vector.arrange()
@@ -80,17 +82,32 @@ class Column(BaseColumn):
         self.right_clone = self.create_copy(rotate=True)
         self.right_clone.left_most()
         self.merge_copies()
+        self.print_it()
 
     def merge_copies(self):
-        # get merged table
-        pass
-
-    def get_result(self, copy):
-        for element in copy.vector.elements:
-            if element.found:
-                e = self.vector.get(element)
-                e.found = True
-                e.pos = element.pos
+        # check in merged values
+        for element in self.left_clone.vector.elements:
+            every = True
+            for c in range(element.length):
+                if self.left_clone.colors[element.pos + c] == self.right_clone.colors[element.pos + c]:
+                    self.cells[element.pos + c].id[0] = element.id
+                    self.cells[element.pos + c].color = element.color
+                else:
+                    every = False
+            if every:
+                self.vector.get(element).found = True
+                self.vector.get(element).pos = element.pos
+        # check in valid 'X's
+        current = 0
+        for i in range(self.length):
+            if current == 0:
+                current = self.left_clone.colors[i]
+            if i > 0 and self.right_clone.colors[i] == 0 and self.left_clone.colors[i] == 0\
+                    and self.right_clone.colors[i-1] == current:
+                current = 0
+            # we can add this X as permanent
+            if current == 0:
+                self.cells[i].color = 0
 
     def print_it(self):
         t = ['-' for _ in range(self.length)]
@@ -191,7 +208,8 @@ class Element(object):
         if self.found:
             if anchor is not None:
                 raise ValueError('Trying to move an already found element!')
-            self.right_element.find_valid_pos(info='Moving onto next element, after fix element')
+            if self.right_element is not None:
+                self.right_element.find_valid_pos(info='Moving onto next element, after fix element')
             return
 
         # There is an anchor point
@@ -211,7 +229,7 @@ class Element(object):
                     # Check if is there any anchors between, if so then rollback with left element
                     if self.left_element is not None:
                         pos = self.left_element.end + self.spacer(self.left_element) + 1
-                        for j in range(pos, anchor):
+                        for j in range(pos, anchor - self.length + 1):
                             if self.colors[j] != -1 and self.colors[j] != 0:  # it is a color
                                 self.left_element.find_valid_pos(anchor=j, info='Found anchors before fix color')
                                 return
@@ -219,18 +237,25 @@ class Element(object):
                     break
 
         # Choose first starting point
+        if self.left_element is None:
+            pos = 0
+        else:
+            pos = self.left_element.end + self.spacer(self.left_element) + 1
+
         if anchor is not None:
-            pos = anchor - self.length + 1
+            new_pos = anchor - self.length + 1
+            # there might be an element what we have already found
+            if new_pos > pos:
+                pos = new_pos
+            # might become negative
+            if pos < 0:
+                pos = 0
             # If we loosed an anchor then rollback with it
             if self.first_anchor is not None and pos > self.first_anchor:
                 old_anchor = self.first_anchor
                 self.first_anchor = None
                 self.left_element.find_valid_pos(anchor=old_anchor, info='Loosed an anchor while getting new')
                 return
-        elif self.left_element is None:
-            pos = 0
-        else:
-            pos = self.left_element.end + self.spacer(self.left_element) + 1
 
         # Find invalid positions
         # pos is the first valid cell after the prev element (without main constraints)

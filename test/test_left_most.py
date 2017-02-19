@@ -51,3 +51,11 @@ c.cells[17].color = 1
 
 c.parse()
 print '----------------------------'
+print "[Test4]: run again"
+c.parse()
+print '----------------------------'
+print "[Test5]: run again with new color"
+c.cells[14].color = elements[2].color
+c.cells[14].id[0] = elements[2].id
+c.parse()
+print '----------------------------'
