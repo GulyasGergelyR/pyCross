@@ -1,7 +1,5 @@
 # Default Size
 DEF_SIZE = 20
-# First ID
-element_id = 10
 
 dim_x_id = 1000
 x_id = 10
@@ -9,12 +7,6 @@ dim_y_id = 2000
 y_id = 10
 dim_z_id = 3000
 z_id = 10
-
-
-def get_id():
-    global element_id
-    element_id += 1
-    return element_id
 
 
 class Cell(object):
@@ -80,6 +72,13 @@ class Column(BaseColumn):
         self.right_clone = self.create_copy(rotate=True)
         self.right_clone.left_most()
 
+    def get_result(self, copy):
+        for element in copy.vector.elements:
+            if element.found:
+                e = self.vector.get(element)
+                e.found = True
+                e.pos = element.pos
+
     def print_it(self):
         t = ['-' for _ in range(self.length)]
         for i, cell in enumerate(self.cells):
@@ -93,6 +92,13 @@ class Column(BaseColumn):
 
 
 class Element(object):
+    element_id = 10
+
+    @staticmethod
+    def get_id():
+        Element.element_id += 1
+        return Element.element_id
+
     def __init__(self, **kwargs):
         """
 
@@ -107,12 +113,18 @@ class Element(object):
         """
         self.vector = kwargs.pop('vector', None)
 
-        self.id = kwargs.pop('id', get_id())
+        self.id = kwargs.pop('id', None)
+        if self.id is None:
+            self.id = Element.get_id()
+
         self.color = kwargs.pop('color', 1)
         self.length = kwargs.pop('length', 1)
 
-        self.pos = kwargs.pop('pos', 0)
         self.found = kwargs.pop('found', False)
+        self.pos = kwargs.pop('pos', 0) if self.found else 0
+        self.rotated = kwargs.pop('rotated', False)
+        if self.rotated:
+            self.pos = kwargs.pop('col_length', DEF_SIZE) - self.end - 1
 
         self.tc = []
 
@@ -152,25 +164,38 @@ class Element(object):
         for k in range(i, j):
             self.tc[k] = 0
 
-    def find_valid_pos(self, anchor=None):
+    def find_valid_pos(self, anchor=None, info='None'):
+        print_output = False
+
+        if print_output:
+            print '[Info]: %s - id: ' % info, self.id
         # TODO remove usage of tc
         if len(self.tc) == 0:
             self.tc = [-1 for _ in range(self.column.length)]
 
+        # We have already found this, go on
+        if self.found:
+            if anchor is not None:
+                raise ValueError('Trying to move an already found element!')
+            self.right_element.find_valid_pos(info='Moving onto next element, after fix element')
+            return
+
+        # There is an anchor point
         if anchor is not None:
             # check what is the color of the anchor point
             if self.colors[anchor] != self.color:
                 self.first_anchor = None
-                self.left_element.find_valid_pos(anchor=anchor)
+                self.left_element.find_valid_pos(anchor=anchor, info='Not the right color, keep rolling back')
                 return
 
         # Choose first starting point
         if anchor is not None:
             pos = anchor - self.length + 1
+            # If we loosed an anchor then rollback with it
             if self.first_anchor is not None and pos > self.first_anchor:
                 old_anchor = self.first_anchor
                 self.first_anchor = None
-                self.left_element.find_valid_pos(anchor=old_anchor)
+                self.left_element.find_valid_pos(anchor=old_anchor, info='Loosed an anchor while getting new')
                 return
         elif self.left_element is None:
             pos = 0
@@ -200,9 +225,9 @@ class Element(object):
             for i, c in enumerate(pattern):
                 if self.tc[pos + i] != -1 and self.tc[pos + i] != c:
                     # If it is another color then we rollback
-                    if self.tc[pos + i] != 0:
+                    if self.tc[pos + i] != self.color:
                         self.first_anchor = None
-                        self.left_element.find_valid_pos(anchor=pos + i)
+                        self.left_element.find_valid_pos(anchor=pos + i, info='Found another color in pattern')
                         return
                     # If it is just because of an 'X', then try to move forward
                     pos += 1
@@ -210,7 +235,7 @@ class Element(object):
                     if self.first_anchor is not None and pos > self.first_anchor:
                         old_anchor = self.first_anchor
                         self.first_anchor = None
-                        self.left_element.find_valid_pos(anchor=old_anchor)
+                        self.left_element.find_valid_pos(anchor=old_anchor, info='Loosed an anchor while moving')
                         return
 
                     # set prev points to invalid
@@ -223,15 +248,27 @@ class Element(object):
                 valid = True
         if valid:
             self.pos = pos
+            if print_output:
+                print 'pos: %s' % pos
             if self.right_element is not None:
-                self.right_element.find_valid_pos()
-                return
+                if self.right_element.found:
+                    for i in range(pos + len(pattern), self.right_element.pos):
+                        if self.tc[i] != -1 and self.tc[i] != 0:  # it is a color
+                            self.find_valid_pos(anchor=i, info='Found anchors before fix element')
+                            return
+                    self.right_element.find_valid_pos(info='Moving onto next element')
+                    return
+                else:
+                    self.right_element.find_valid_pos(info='Moving onto next element')
+                    return
             else:
                 # look for anchors
                 for i in range(pos + len(pattern), self.column.length):
                     if self.tc[i] != -1 and self.tc[i] != 0:
-                        self.find_valid_pos(anchor=i)
+                        self.find_valid_pos(anchor=i, info='Found anchors before end')
                         return
+                if print_output:
+                    print '[Info]: Should stop now!'
 
 
 class Vector(object):
@@ -262,7 +299,8 @@ class Vector(object):
 
     def create_copy(self, rotate=False):
         elements = [Element(id=e.id, color=e.color,
-                            length=e.length, found=e.found, pos=e.pos) for e in self.elements]
+                            length=e.length, found=e.found, pos=e.pos, rotated=rotate, col_length=self.column.length)
+                    for e in self.elements]
         if rotate:
             elements = elements[::-1]
         e = Vector(elements=elements)
