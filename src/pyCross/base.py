@@ -1,3 +1,5 @@
+import numpy as np
+
 # Default Size
 DEF_SIZE = 20
 
@@ -7,6 +9,11 @@ dim_y_id = 2000
 y_id = 10
 dim_z_id = 3000
 z_id = 10
+
+
+def set_def_size(size):
+    global DEF_SIZE
+    DEF_SIZE = size
 
 
 class Cell(object):
@@ -75,14 +82,18 @@ class Column(BaseColumn):
         c = SubColumn(parent=self, cells=cells, vector=self.vector.create_copy(rotate), rotated=rotate)
         return c
 
-    def parse(self):
-        self.print_it()
+    def parse(self, print_output=True):
+        if print_output:
+            self.print_it()
+
         self.left_clone = self.create_copy()
         self.left_clone.left_most()
         self.right_clone = self.create_copy(rotate=True)
         self.right_clone.left_most()
         self.merge_copies()
-        self.print_it()
+
+        if print_output:
+            self.print_it()
 
     def merge_copies(self):
         # check in merged values
@@ -119,6 +130,22 @@ class Column(BaseColumn):
             else:
                 t[i] = str(cell.color)
         print 'main: |{}|'.format(''.join(t))
+
+
+class Table2D(object):
+    def __init__(self, v_vectors=(), h_vectors=()):
+        self.cells = np.array([[Cell(p=[i, j, 0]) for i in DEF_SIZE] for j in DEF_SIZE])
+        self.vertical_vectors = v_vectors
+        self.horizontal_vectors = h_vectors
+
+    def solve_one(self):
+        v, h = self.cells.shape
+        for c_i in range(v):
+            column = Column(vector=self.vertical_vectors[c_i], cells=self.cells[c_i, :])
+            column.parse()
+        for c_i in range(h):
+            column = Column(vector=self.horizontal_vectors[c_i], cells=self.cells[:, c_i])
+            column.parse()
 
 
 class Element(object):
@@ -195,8 +222,7 @@ class Element(object):
         for k in range(i, j):
             self.tc[k] = 0
 
-    def find_valid_pos(self, anchor=None, info='None'):
-        print_output = False
+    def find_valid_pos(self, anchor=None, info='None', print_output=False):
 
         if print_output:
             print '[Info]: %s - id: ' % info, self.id
@@ -279,7 +305,7 @@ class Element(object):
             for i, c in enumerate(pattern):
                 if self.tc[pos + i] != -1 and self.tc[pos + i] != c:
                     # If it is another color then we rollback
-                    if self.tc[pos + i] != self.color:
+                    if self.tc[pos + i] != self.color and self.tc[pos+i] != 0:
                         self.first_anchor = None
                         self.left_element.find_valid_pos(anchor=pos + i, info='Found another color in pattern')
                         return
@@ -306,6 +332,8 @@ class Element(object):
                 print 'pos: %s' % pos
             if self.right_element is not None:
                 if self.right_element.found:
+                    if print_output:
+                        print "Found Element %s" % self.id
                     for i in range(pos + len(pattern), self.right_element.pos):
                         if self.tc[i] != -1 and self.tc[i] != 0:  # it is a color
                             self.find_valid_pos(anchor=i, info='Found anchors before fix element')

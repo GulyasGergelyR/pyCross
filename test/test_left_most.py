@@ -1,4 +1,6 @@
-from pyCross.base import Vector, Column, Element
+from pyCross.base import Vector, Column, Element, set_def_size
+
+set_def_size(25)
 
 print "[Test-1]: simple left right"
 elements = [
@@ -13,7 +15,7 @@ c.cells[4].color = 1
 c.cells[7].color = 1
 c.cells[17].color = 1
 
-c.parse()
+c.parse(print_output=True)
 print '----------------------------'
 print "[Test-2]: with fix element"
 elements = [

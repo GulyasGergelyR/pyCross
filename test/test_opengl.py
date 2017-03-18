@@ -91,8 +91,8 @@ def DrawGLScene():
 
     glEnd()
 
-    X_AXIS = X_AXIS - 0.30
-    Z_AXIS = Z_AXIS - 0.30
+    X_AXIS = X_AXIS - 0.03
+    Z_AXIS = Z_AXIS - 0.03
 
     glutSwapBuffers()
 

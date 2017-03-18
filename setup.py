@@ -10,7 +10,8 @@ setup(
     zip_safe=False,
     install_requires=[
                       'numpy',
-                      'pyopengl'
+                      'pyopengl',
+                      'pillow'
                       ],
     description='This is the description'
 )
