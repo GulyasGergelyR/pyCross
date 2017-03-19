@@ -4,28 +4,35 @@ from OpenGL.GL import *
 from OpenGL.GLUT import *
 from OpenGL.GLU import *
 from PIL import Image
+from pyCross.base import Table2D, set_def_size, Source, get_def_size
 
-ESCAPE = '\033'
-SIZE = 0.3
+ESCAPE = '\x1b'
+SPACE = ' '
+SIZE = 0.07
+
 window = 0
 X_AXIS = 0
 
 tex = None
 
+colors = {0: (0.1, 0.1, 0.1,), 1: (1.0, 0.0, 0.0,), 2: (0.0, 1.0, 0.0,), 3: (0.0, 0.0, 1.0,),
+          4: (0.0, 0.5, 1.0,), 5: (0.5, 0.0, 1.0,)}
+
 
 class Element2D(object):
     def __init__(self, x=0, y=0, color=(1.0, 1.0, 1.0,)):
         self.color = color
-        self.x = x
-        self.y = y
+        self.x = x - get_def_size() / 2.0
+        self.y = -y + get_def_size() / 2.0
 
     def draw(self):
+        glEnable(GL_COLOR_MATERIAL)
         glBegin(GL_QUADS)
         glColor3f(*self.color)
-        glVertex2f(self.x, self.y)
-        glVertex2f(self.x, self.y + SIZE)
-        glVertex2f(self.x + SIZE, self.y + SIZE)
-        glVertex2f(self.x + SIZE, self.y)
+        glVertex3f(self.x*SIZE, self.y*SIZE, 0)
+        glVertex3f(self.x*SIZE, self.y*SIZE + SIZE, 0)
+        glVertex3f(self.x*SIZE + SIZE, self.y*SIZE + SIZE, 0)
+        glVertex3f(self.x*SIZE + SIZE, self.y*SIZE, 0)
         glEnd()
 
 
@@ -34,8 +41,24 @@ class Number(object):
         pass
 
 
-class Renderer(object):
+class Game(object):
     def __init__(self):
+        set_def_size(50)
+        source = Source()
+        source.randomize()
+
+        source.analyze()
+        source.print_it()
+
+        self.table2d = Table2D()
+        self.table2d.horizontal_vectors = source.horizontal_vectors
+        self.table2d.vertical_vectors = source.vertical_vectors
+        Renderer(self)
+
+
+class Renderer(object):
+    def __init__(self, game):
+        self.game = game
         glutInit(sys.argv)
         glutInitDisplayMode(GLUT_RGBA | GLUT_DOUBLE | GLUT_DEPTH)
         glutInitWindowSize(640, 480)
@@ -52,9 +75,11 @@ class Renderer(object):
 
         self.texture = None
 
-    def _key_pressed(*args):
+    def _key_pressed(self, *args):
         if args[0] == ESCAPE:
             sys.exit()
+        if args[0] == SPACE:
+            self.game.table2d.solve_one()
 
     def _draw_2d_grid(self):
         pass
@@ -73,16 +98,21 @@ class Renderer(object):
         glEnd()
 
     def _draw_2d_elements(self):
-        pass
+        for y, row in enumerate(self.game.table2d.cells):
+            for x, cell in enumerate(row):
+                if cell.color in colors.keys():
+                    element2d = Element2D(x=x, y=y, color=colors[cell.color])
+                    element2d.draw()
 
     def _draw_gl_scene(self):
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        glAlphaFunc(GL_GREATER, 0)
+        # glAlphaFunc(GL_GREATER, 0)
 
         glLoadIdentity()
         glTranslatef(0.0, 0.0, -6.0)
+
         self._draw_2d_grid()
-        self._draw_2d_numbers()
+        # self._draw_2d_numbers()
         self._draw_2d_elements()
         glutSwapBuffers()
 
@@ -125,4 +155,4 @@ class Renderer(object):
         return texture
 
 if __name__ == "__main__":
-    renderer = Renderer()
+    Game()
