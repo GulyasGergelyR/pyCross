@@ -88,8 +88,8 @@ class Game(object):
         colors = source.colors
 
         self.table2d = Table2D()
-        self.table2d.horizontal_vectors = source.vertical_vectors
-        self.table2d.vertical_vectors = source.horizontal_vectors
+        self.table2d.horizontal_vectors = source.horizontal_vectors
+        self.table2d.vertical_vectors = source.vertical_vectors
         Renderer(self)
 
 
