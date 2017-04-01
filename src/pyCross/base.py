@@ -1,4 +1,5 @@
 import random
+import re
 
 import numpy as np
 
@@ -67,7 +68,7 @@ class SubColumn(BaseColumn):
         cells = self.cells[::-1] if self.rotated else self.cells
         return [cell.id[self.dir] for cell in cells]
 
-    def left_most(self, print_output=True):
+    def left_most(self, print_output=False):
         self.vector.arrange()
         if print_output:
             self.print_it()
@@ -90,7 +91,7 @@ class Column(BaseColumn):
                       rotated=rotate)
         return c
 
-    def parse(self, print_output=True):
+    def parse(self, print_output=False):
         if print_output:
             self.print_it()
 
@@ -109,12 +110,12 @@ class Column(BaseColumn):
         for element in self.left_clone.vector.elements:
             for c in range(element.length):
                 left_ids[element.pos + c] = element.id
-        print 'sub:  |{}|'.format(','.join([str(c) for c in left_ids]))
+        # print 'sub:  |{}|'.format(','.join([str(c) for c in left_ids]))
         right_ids = [-2 for _ in range(DEF_SIZE)]
         for element in self.right_clone.vector.elements:
             for c in range(element.length):
                 right_ids[DEF_SIZE - element.pos - c - 1] = element.id
-        print 'sub:  |{}|'.format(','.join([str(c) for c in right_ids]))
+        # print 'sub:  |{}|'.format(','.join([str(c) for c in right_ids]))
 
         # check in merged values
         for element in self.left_clone.vector.elements:
@@ -132,14 +133,6 @@ class Column(BaseColumn):
         # check in valid 'X's
         current = -2  # no id
         for i in range(self.length):
-            # if current == 0:
-            #     current = self.left_clone.ids[i]
-            # if i > 0 and self.right_clone.colors[i] == 0 and self.left_clone.colors[i] == 0\
-            #         and self.right_clone.colors[i-1] == current:
-            #     current = 0
-            # # we can add this X as permanent
-            # if current == 0 and self.right_clone.colors[i] == 0 and self.left_clone.colors[i] == 0:
-            #     self.cells[i].color = 0
             if left_ids[i] != -2:
                 current = left_ids[i]
             if i > 0 and self.right_clone.colors[i] == 0 and self.left_clone.colors[i] == 0 \
@@ -170,12 +163,10 @@ class Table2D(object):
         v, h = self.cells.shape
         for c_i in range(v):
             column = Column(direction=0, vector=self.vertical_vectors[c_i], cells=self.cells[c_i, :])
-            print '%s, %s' % (c_i, len(column.vector.elements))
             column.parse()
 
         for c_i in range(h):
             column = Column(direction=1, vector=self.horizontal_vectors[c_i], cells=self.cells[:, c_i])
-            print '%s, %s' % (c_i, len(column.vector.elements))
             column.parse()
 
 
@@ -252,7 +243,7 @@ class Element(object):
         for k in range(i, j):
             self.tc[k] = 0
 
-    def find_valid_pos(self, anchor=None, info='None', print_output=True):
+    def find_valid_pos(self, anchor=None, info='None', print_output=False):
 
         if print_output:
             print '[Info]: %s - id: ' % info, self.id
@@ -395,8 +386,9 @@ class Vector(object):
             self.elements[i+1].left_element = self.elements[i]
 
     def add(self, element):
-        self.elements[-1].right_element = element
-        element.left_element = self.elements[-1]
+        if len(self.elements) > 0:
+            self.elements[-1].right_element = element
+            element.left_element = self.elements[-1]
         self.elements += [element]
         element.vector = self
 
@@ -428,6 +420,7 @@ class Source(object):
         self.cells = np.array([[Cell(p=[i, j, 0]) for i in range(DEF_SIZE)] for j in range(DEF_SIZE)])
         self.vertical_vectors = []
         self.horizontal_vectors = []
+        self.colors = dict()
 
     def print_it(self):
         for row in self.cells:
@@ -442,9 +435,40 @@ class Source(object):
             for element in vector.elements:
                 print '{}. length: {} color: {}'.format(vi, element.length, element.color)
 
+    def read_from_file(self, filename):
+        global DEF_SIZE
+        with open(filename, 'r') as f:
+            size = f.readline()
+            m_size = re.search('(?P<x>\d+);(?P<y>\d+)', size)
+            if m_size is not None:
+                DEF_SIZE = max([int(m_size.group('x')), int(m_size.group('y'))])
+            self.vertical_vectors = [Vector() for _ in range(DEF_SIZE)]
+            self.horizontal_vectors = [Vector() for _ in range(DEF_SIZE)]
+
+            for line in f:
+                m_c = re.search('(?P<c>\d+);(?P<r>\d+);(?P<g>\d+);(?P<b>\d+)', line)
+                if m_c is not None:
+                    c = int(m_c.group('c'))
+                    if c in self.colors.keys():
+                        raise StandardError('Using the same color id again!')
+                    self.colors[c] = [int(m_c.group('r'))/255.0, int(m_c.group('g'))/255.0, int(m_c.group('b'))/255.0]
+                    continue
+
+                m_e = re.search('(?P<dir>[hv]);(?P<i>\d+);(?P<c>\d+);(?P<l>\d+)', line)
+                if m_e is not None:
+                    if m_e.group('c') == '4':
+                        continue
+
+                    if 'h' == m_e.group('dir'):
+                        self.horizontal_vectors[int(m_e.group('i'))-1].add(Element(color=int(m_e.group('c')),
+                                                                                   length=int(m_e.group('l'))))
+                    if 'v' == m_e.group('dir'):
+                        self.vertical_vectors[int(m_e.group('i'))-1].add(Element(color=int(m_e.group('c')),
+                                                                                 length=int(m_e.group('l'))))
+
     def randomize(self):
         for _ in range(DEF_SIZE*10):
-            desired_length = random.randint(1, DEF_SIZE/3)
+            desired_length = random.randint(1, DEF_SIZE)
             position = random.randint(0, DEF_SIZE-1)
             column = random.randint(0, DEF_SIZE-1)
             color = random.randint(1, 5)
